@@ -4,7 +4,9 @@ import sys
 sys.path.append('..')
 import requests
 from bs4 import BeautifulSoup
+import chardet
 import generator.GenHeader as gen_header
+import self.SelfException as self_exception
 
 def match_expect_type(value,expect_type):
     '''
@@ -26,7 +28,7 @@ def val_in_enum(val,enum):
 
 
 def detect_if_need_proxy(url):
-    header = gen_header.gen_limit_header(1)
+    header = gen_header.gen_limit_header(1)[0]
     print(header)
     try:
         r = requests.get(url, headers=header, timeout=5)
@@ -36,21 +38,29 @@ def detect_if_need_proxy(url):
     return False
 
 
-def send_request_get_response(url, if_need_proxy):
+def detect_if_proxy_usable(proxies):
+    header = gen_header.gen_limit_header(1)[0]
+    # print(header)
+    try:
+        r = requests.get(url='https://www.baidu.com', headers=header,
+                         proxies=proxies, timeout=5)
+    except requests.exceptions.ConnectTimeout as e:
+        # print('代理无效')
+        return False
+    return True
+
+
+def send_request_get_response(*, url, if_use_proxy, proxies, header):
     '''
     :param url:
-    :param if_need_proxy:  boolean
+    :param if_use_proxy:  boolean
+    :param proxies: dict，如果if_need_proxy为true，传入代理
+    :param header: request的header
     :return: root soup
     '''
-    proxies = {
-        'http': '87.254.212.121:8080',
-        'https': '87.254.212.121:8080'
-    }
-    header = {
-        'User-Agent': generate_firefox_ua()[0]
-    }
+
     # logging.debug(header)
-    if if_need_proxy:
+    if if_use_proxy:
         r = requests.get(url, headers=header, proxies=proxies,
                          timeout=5)
     else:
@@ -58,7 +68,7 @@ def send_request_get_response(url, if_need_proxy):
 
     if r.status_code != 200:
         print('错误代码 %s' % r.status_code)
-        return chrome_ver
+        raise self_exception.ResponseException(r.status_code)
 
     # raise e.ResponseException(200)
     # logging.debug(chardet.detect(r.content)['encoding'])
@@ -68,5 +78,9 @@ def send_request_get_response(url, if_need_proxy):
         soup = BeautifulSoup(r.text, 'lxml')
     else:
         soup = BeautifulSoup(r.text, 'lxml', from_encoding=encoding)
+
+    return soup
+
+
 if __name__ == '__main__':
     pass

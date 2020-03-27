@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import sys
+
 sys.path.append('..')
 import requests
 from bs4 import BeautifulSoup
@@ -11,11 +12,13 @@ import chardet
 from datetime import datetime
 
 # from self.SelfError import ResponseException
-import self.SelfError as e
+import self.SelfException as e
 import self.SelfEnum as self_enum
 # import self.SelfError
 import helper.Helper as helper
+import generator.GenHeader as gen_header
 
+import setting
 logging.basicConfig(level=logging.DEBUG)
 # 6.0 = Vista   6.1=win7    6.2=win8   6.3=win8.1   10 = win10
 WIN_VER = ['Windows NT 6.0', 'Windows NT 6.1', 'Windows NT 6.2',
@@ -41,19 +44,13 @@ Gecko/20100101 Firefox/74.0']
             return random.sample(firefox_header, num)
 
     return firefox_header
-    # if
-    # else:
-
-    # logging.debug(firefox_header)
-
-
-
 
 
 def generate_chrome_url_base_on_type(*,
                                      os_type={self_enum.OsType.Win64},
                                      chrome_type={self_enum.ChromeType.Stable}):
     '''
+    chrome的版本需要从网页读取，结果如https://www.chromedownloads.net/chrome-win32-stable
     :param os_type: set,
     :param chrome_type: set,
     :return: set，包含需要获取版本的url
@@ -86,7 +83,6 @@ def generate_chrome_url_base_on_type(*,
         self_enum.OsType.Win64: 'chrome64win'
     }
 
-    part_url = ''
     base_url = 'https://www.chromedownloads.net/'
     result = []
     for single_os_type in os_type:
@@ -97,7 +93,7 @@ def generate_chrome_url_base_on_type(*,
     return result
 
 
-def get_chrome_ver(*, url, max_release_years, if_use_proxy):
+def get_chrome_ver(*, url, max_release_years):
     '''
     :param url: 获取chrome版本的url
     :param max_release_years: 版本距今最长年数
@@ -105,9 +101,13 @@ def get_chrome_ver(*, url, max_release_years, if_use_proxy):
     :return: set
     '''
     chrome_ver = set({})
-
-
     current_year = datetime.now().year
+    if_use_proxy = helper.detect_if_need_proxy(url)
+    header = gen_header.gen_limit_header(1)[0]
+
+    soup = helper.send_request_get_response(url=url, if_use_proxy=if_use_proxy,
+                                            proxies=setting.BASIC_PROXY,
+                                            header=header)
     records = soup.select('div.download_content>ul.fix>'
                           'li[class!=divide-line]')
 
@@ -150,13 +150,12 @@ def generate_chrome_ua(*, max_release_years=2,
         return
 
     # 检测是否需要代理，如果需要，设置代理
-    if_use_proxy = helper.detect_if_need_proxy(version_url[0])
+    # if_use_proxy = helper.detect_if_need_proxy(version_url[0])
 
     chrome_ver = set({})
     for single_url in version_url:
         tmp_chrome_ver = get_chrome_ver(url=single_url,
-                                        max_release_years=max_release_years,
-                                        if_use_proxy=if_use_proxy)
+                                        max_release_years=max_release_years)
         # logging.debug(tmp_chrome_ver)
         # 获得的version加入chrome_ver
         chrome_ver = chrome_ver | tmp_chrome_ver
@@ -179,24 +178,8 @@ Chrome/%s Safari/537.36' % (winver, osbit, chromever)
 
 if __name__ == '__main__':
     try:
-        generate_chrome_ua(chrome_type={self_enum.ChromeType.Stable,
+        result = generate_chrome_ua(chrome_type={self_enum.ChromeType.Stable,
                                         self_enum.ChromeType.Beta})
+        print(result)
     except e.ResponseException as e:
         print(e)
-
-# USER_AGENT=[
-#
-# ]
-# FREE_PROXY_SITE = [
-#     {
-#         'urls': ['http://www.xicidaili.com/%s/%s' % (m, n) for m in
-#                  ['nn', 'nt', 'wn', 'wt'] for n in range(1, 8)],
-#         'type': 'bs4',
-#         'pattern': "#ip_list>tr",
-#         'position': {'ip': './td[2]', 'port': './td[3]', 'type': './td[5]',
-#                      'protocol': './td[6]'}
-#     },
-# ]
-#
-# def getProxyIp():
-#     requests.get(url=)
