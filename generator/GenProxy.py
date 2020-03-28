@@ -15,6 +15,7 @@ import random
 import psutil
 from multiprocessing import Queue, Pool
 import logging
+import time
 
 logging.basicConfig(level=logging.DEBUG)
 FREE_PROXY_SITE = [
@@ -184,28 +185,53 @@ def gen_proxy():
 def check_proxies_validate(proxy):
     # ip = proxy['ip']
     # port = proxy['port']
+    print('check_proxies start')
+    # print(proxy)
     if helper.detect_if_proxy_usable(proxy):
         print('代理 %s 有效' % proxy['http'])
     else:
         print('代理 %s 无效' % proxy['http'])
 
 
-if __name__ == '__main__':
-    proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
-               {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]
-    # result, proxies = gen_proxy()
+def pool_run(proxies):
+    # task_list = []
+    # logging.debug(psutil.cpu_count())
+    print(time.time())
+    p = Pool(psutil.cpu_count())
+    # for single_proxy in proxies:
+    #     p.apply_async(check_proxies_validate, args=(single_proxy,))
+    p.apply_async(check_proxies_validate, args=(proxies[0],))
+    p.apply_async(check_proxies_validate, args=(proxies[1],))
+    print('Waiting for all subprocesses done...')
+    start_time = time.time()
+    p.close()
+    p.join()
+    end_time = time.time()
+    print('All subprocesses done. total cost %s ms' % (end_time-start_time))
+    # gevent.joinall(task_list)
+
+
+def gevent_run(proxies):
     task_list = []
     # logging.debug(psutil.cpu_count())
     # print(proxies)
-    p = Pool(2)
+    # p = Pool(2)
     for single_proxy in proxies:
-        # task_list.append(
-        #     gevent.spawn(check_proxies_validate,single_proxy)
-        # )
-        p.apply_async(check_proxies_validate, args=(single_proxy,))
+        task_list.append(
+            gevent.spawn(check_proxies_validate, single_proxy)
+        )
+        # p.apply_async(check_proxies_validate, args=(single_proxy,))
     # p.apply_async(check_proxies_validate, args=(proxies[1],))
-    print('Waiting for all subprocesses done...')
-    p.close()
-    p.join()
-    print('All subprocesses done.')
-    # gevent.joinall(task_list)
+    print('Waiting for gevent done...')
+    start_time = time.time()
+    gevent.joinall(task_list)
+    end_time = time.time()
+    print('All gevent done. total cost %s ms' % (end_time-start_time))
+
+if __name__ == '__main__':
+    # tmp_proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
+    #            {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]
+    result, tmp_proxies = gen_proxy()
+    print(tmp_proxies)
+    # pool_run(tmp_proxies)
+    gevent_run(tmp_proxies)

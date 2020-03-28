@@ -44,8 +44,13 @@ def detect_if_proxy_usable(proxies):
     try:
         r = requests.get(url='https://www.baidu.com', headers=header,
                          proxies=proxies, timeout=5)
+    except requests.exceptions.ConnectionError as e:
+        # print('代理无效')
+        return False
     except requests.exceptions.ConnectTimeout as e:
         # print('代理无效')
+        return False
+    except requests.exceptions.ProxyError as e:
         return False
     return True
 
