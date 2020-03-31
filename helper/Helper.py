@@ -38,7 +38,7 @@ def detect_if_need_proxy(url):
     return False
 
 
-def detect_if_proxy_usable(proxies):
+def detect_if_proxy_usable(*, proxies, url='https://www.baidu.com'):
     header = gen_header.gen_limit_header(1)[0]
     # print(header)
     try:

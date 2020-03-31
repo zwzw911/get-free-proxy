@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 import requests
 from multiprocessing import Queue, Pool
+from bs4 import BeautifulSoup
 
 header = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) \
@@ -29,24 +30,30 @@ def check_proxies_validate(proxy):
     return True
 
 
-
+def test():
+    html='''
+    <li class="proxy"><script type="text/javascript">Proxy('MjAzLjE3Ni4xMzMuMzg6ODA4MA==')</script>203.176.133.38:8080</li>
+    '''
+    soup=BeautifulSoup(html,'lxml')
+    print(soup.get_text)
 
 if __name__ == '__main__':
-    proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
-               {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]
-    # result, proxies = gen_proxy()
-    # task_list = []
-    # logging.debug(psutil.cpu_count())
-    # print(proxies)
-    p = Pool(2)
-    # for single_proxy in proxies:
-        # task_list.append(
-        #     gevent.spawn(check_proxies_validate,single_proxy)
-        # )
-    p.apply_async(check_proxies_validate, args=(proxies[0],))
-    p.apply_async(check_proxies_validate, args=(proxies[1],))
-    print('Waiting for all subprocesses done...')
-    p.close()
-    p.join()
-    print('All subprocesses done.')
+    test()
+    # proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
+    #            {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]
+    # # result, proxies = gen_proxy()
+    # # task_list = []
+    # # logging.debug(psutil.cpu_count())
+    # # print(proxies)
+    # p = Pool(2)
+    # # for single_proxy in proxies:
+    #     # task_list.append(
+    #     #     gevent.spawn(check_proxies_validate,single_proxy)
+    #     # )
+    # p.apply_async(check_proxies_validate, args=(proxies[0],))
+    # p.apply_async(check_proxies_validate, args=(proxies[1],))
+    # print('Waiting for all subprocesses done...')
+    # p.close()
+    # p.join()
+    # print('All subprocesses done.')
     # gevent.joinall(task_list)

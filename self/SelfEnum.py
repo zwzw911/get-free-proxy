@@ -18,6 +18,7 @@ class ProxyType(Enum):
     # 高匿名：对方服务器不知道你使用了代理，也不知道你的真实IP。
     # REMOTE_ADDR = ProxyIP，HTTP_VIA = NULL，HTTP_X_FORWARDED_FOR = NULL
     High16yun = 2
+    All = 3
 
 
 @unique
@@ -39,3 +40,11 @@ class OsType(Enum):
     Win32 = 0
     Win64 = 1
     All = 2
+
+@unique
+class Country(Enum):
+    China = 0
+    All = 1
+
+if __name__ == '__main__':
+    print('China' in Country)
