@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding:utf-8 -*-
 import sys
+
 sys.path.append('..')
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +9,8 @@ import chardet
 import generator.GenHeader as gen_header
 import self.SelfException as self_exception
 
-def match_expect_type(value,expect_type):
+
+def match_expect_type(value, expect_type):
     '''
     :param value:  待检查的值
     :param expect_type:    字符，期望的类型
@@ -17,7 +19,7 @@ def match_expect_type(value,expect_type):
     return expect_type in str(type(value))
 
 
-def val_in_enum(val,enum):
+def val_in_enum(val, enum):
     '''
     检测val是否是enum定义的值
     :param val: 待检测的enum值
@@ -31,19 +33,20 @@ def detect_if_need_proxy(url):
     header = gen_header.gen_limit_header(1)[0]
     print(header)
     try:
-        r = requests.get(url, headers=header, timeout=5)
+        r = requests.get(url, headers=header, timeout=10)
     except requests.exceptions.ConnectTimeout as e:
         print('不通过代理发起的请求超时，需要使用代理')
         return True
     return False
 
 
-def detect_if_proxy_usable(*, proxies, url='https://www.baidu.com'):
+def detect_if_proxy_usable(*, proxies, header,
+                           timeout=5, url='https://www.baidu.com'):
     header = gen_header.gen_limit_header(1)[0]
     # print(header)
     try:
         r = requests.get(url='https://www.baidu.com', headers=header,
-                         proxies=proxies, timeout=5)
+                         proxies=proxies, timeout=timeout)
     except requests.exceptions.ConnectionError as e:
         # print('代理无效')
         return False
@@ -67,7 +70,7 @@ def send_request_get_response(*, url, if_use_proxy, proxies, header):
     # logging.debug(header)
     if if_use_proxy:
         r = requests.get(url, headers=header, proxies=proxies,
-                         timeout=5)
+                         timeout=10)
     else:
         r = requests.get(url, headers=header, timeout=2)
 
@@ -85,6 +88,25 @@ def send_request_get_response(*, url, if_use_proxy, proxies, header):
         soup = BeautifulSoup(r.text, 'lxml', from_encoding=encoding)
 
     return soup
+
+
+def async_send_request_get_response(url, if_use_proxy, proxies, header,
+                                    soup_list):
+    '''
+    为了使用携程（提高效率，采用异步模式：即发送request后，立刻发送下一个request，而不是等待response）
+    对helper.send_request_get_response进行包装，添加一个额外参数soup_list
+    ，存储beautifulsoup处理后的response
+    :param url: request的地址
+    :param if_use_proxy:
+    :param proxies: 用来来接待代理网页的代理
+    :param header:
+    :param soup_list: 存储response
+    :return: 无
+    '''
+    soup_list.append(
+        send_request_get_response(url=url, if_use_proxy=if_use_proxy,
+                                  proxies=proxies, header=header)
+    )
 
 
 if __name__ == '__main__':

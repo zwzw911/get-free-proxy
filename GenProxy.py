@@ -11,7 +11,9 @@ import re
 
 sys.path.append('..')
 import generator.GenHeader as gen_header
+import generator.GenProxyFromPage as gen_proxy_from_page
 import helper.Helper as helper
+import helper.PreFilter as pre_filter
 
 import setting
 import random
@@ -137,173 +139,200 @@ FREE_PROXY_SITE = [
 #                                             proxies=setting.BASIC_PROXY,
 #                                             header=header)
 
-
-def extra_data_from_page_xicidaili(soup):
+def gen_proxy_sync(*, site):
     '''
-    :param soup: 读取页面的html内容
-    :return: list，当前页面所有proxy记录
+    request采用同步方式，效率低，但是可靠
+    :param site:
+    :return:
     '''
-    records = soup.select('#ip_list tr:not(:first-child)')
+    headers = gen_header.gen_limit_header(50)
     result = []
-    for single_record in records:
-        ip = single_record.select('td:nth-of-type(2)')[0].string
-        port = single_record.select('td:nth-of-type(3)')[0].string
-        is_anonymous = single_record.select('td:nth-of-type(5)')[
-            0].string
-        is_anonymous = 'TRANS' if is_anonymous == '透明' else 'HIGH_ANON'
-        protocol = single_record.select('td:nth-of-type(6)')[
-            0].string.upper()
-        # 期望是所有，直接添加
-        if self_enum.ProxyType.All in setting.proxy_filter.type:
-            result.append({'ip': ip, 'port': port, 'protocol': protocol,
-                           'type': is_anonymous})
-            # continue
-        # 如果期望获得透明，且获得的proxy是透明，添加
-        elif self_enum.ProxyType.Transparent in setting.proxy_filter.type:
-            if is_anonymous == 'TRANS':
-                result.append({'ip': ip, 'port': port, 'protocol': protocol,
-                               'type': is_anonymous})
-                # continue
-        # 如果期望获得高匿，且获得的是高匿，添加
-        elif self_enum.ProxyType.Anonymous in setting.proxy_filter.type or \
-                self_enum.ProxyType.High16yun in setting.proxy_filter.type:
-            if is_anonymous == 'HIGH_ANON':
-                result.append({'ip': ip, 'port': port, 'protocol': protocol,
-                               'type': is_anonymous})
-                # continue
-        # proxies.append({
-        #     'http': '%s:%s' % (ip, port),
-        #     'https': '%s:%s' % (ip, port)
-        # })
+    for single_site in site:
+        if_use_proxy = helper.detect_if_need_proxy(single_site['urls'][0])
+        if if_use_proxy:
+            if_proxy_usable = helper.detect_if_proxy_usable(
+                proxies=setting.BASIC_PROXY, header=random.choice(
+                    headers), url=single_site['urls'][0])
+            if not if_proxy_usable:
+                logging.warning('代理%s无法连接到%s，忽略' % (setting.BASIC_PROXY,
+                                                    single_site['urls'][0]))
+                continue
+
+        if 'xicidaili' in single_site['urls'][0]:
+            # xici不支持socks，如果setting中只包含socks4/5，则不作任何处理
+            if not pre_filter.pre_filter_xicidaili():
+                continue
+            for single_url in single_site['urls']:
+                header = random.choice(headers)
+                soup = helper.send_request_get_response(
+                    url=single_url, if_use_proxy=if_use_proxy,
+                    proxies=setting.BASIC_PROXY, header=header)
+                result += \
+                    gen_proxy_from_page.extra_data_from_page_xicidaili(soup)
+
+        if 'kuaidaili' in single_site['urls'][0]:
+            # kuaidaili只支持HTTP，无国家
+            if not pre_filter.pre_filter_kuaidaili():
+                continue
+            for single_url in single_site['urls']:
+                #  期望透明，但是url是指向高匿，则忽略
+                if self_enum.ProxyType.Transparent in \
+                        setting.proxy_filter['type']:
+                    if 'intr' not in single_url:
+                        continue
+                # 期望高匿，但是url指向透明，忽略
+                if self_enum.ProxyType.Anonymous in setting.proxy_filter[
+                    'type'] \
+                        or self_enum.ProxyType.High16yun in \
+                        setting.proxy_filter['type']:
+                    if 'inha' not in single_url:
+                        continue
+                header = random.choice(headers)
+                soup = helper.send_request_get_response(
+                    url=single_url, if_use_proxy=if_use_proxy,
+                    proxies=setting.BASIC_PROXY, header=header)
+                result += gen_proxy_from_page.extra_data_from_page_kuaidaili(
+                    soup)
+
+        if 'proxy-list' in single_site['urls'][0]:
+            # proxy-list只支持HTTP/HTTPS
+            if not pre_filter.pre_filter_proxy_list():
+                continue
+
+            for single_url in single_site['urls']:
+                header = random.choice(headers)
+                soup = helper.send_request_get_response(
+                    url=single_url, if_use_proxy=if_use_proxy,
+                    proxies=setting.BASIC_PROXY, header=header)
+                result += gen_proxy_from_page.extra_data_from_page_proxylist(
+                    soup)
+
+        if 'hidemy' in single_site['urls'][0]:
+            # hidemy.name支持所有protocol，2种type，和国家
+            for single_url in single_site['urls']:
+                header = random.choice(headers)
+                soup = helper.send_request_get_response(
+                    url=single_url, if_use_proxy=if_use_proxy,
+                    proxies=setting.BASIC_PROXY, header=header)
+                result += gen_proxy_from_page.extra_data_from_page_hidemy(
+                    soup)
 
     return result
 
-
-def extra_data_from_page_kuaidaili(soup):
+def gen_proxy_async(*, site):
     '''
-    :param soup: 读取页面的html内容
-    :return: list，当前页面所有proxy记录
-    '''
-    records = soup.select('tbody>tr')
-    result = []
-    for single_record in records:
-        ip = single_record.select('td[data-title=IP]')[0].string
-        port = single_record.select('td[data-title=PORT]')[0].string
-        is_anonymous = single_record.select('td[data-title=匿名度]')[
-            0].string
-        is_anonymous = 'TRANS' if is_anonymous == '透明' else 'HIGH_ANON'
-        protocol = single_record.select('td[data-title=类型]')[
-            0].string.upper()
-        result.append({'ip': ip, 'port': port, 'protocol': protocol,
-                       'type': is_anonymous})
-    return result
-
-
-def extra_data_from_page_proxylist(soup):
-    '''
-    :param soup: 读取页面的html内容
-    :return: list，当前页面所有proxy记录
-    '''
-    # print(soup.string)
-    records = soup.select('div.table>ul')
-    result = []
-    for single_record in records:
-        raw_country = single_record.select('li.country-city>div>span.country')[
-            0]
-        print(raw_country)
-        print(raw_country['title'])
-        if self_enum.Country.All in setting.proxy_filter.country:
-            pass
-        elif
-        raw_ip = single_record.select('li.proxy')[0].get_text()
-        ip_base64 = re.match(r'Proxy\(\'(.*)\'\)', raw_ip).group(1)
-        ip_str = base64.b64decode(ip_base64).decode('utf-8').split(':')
-        ip = ip_str[0]
-        port = ip_str[1]
-
-        # for string in ip:
-        #     print(string)
-    #     port = single_record.select('td:nth-of-type(3)')[0].string
-    #     is_anonymous = single_record.select('td:nth-of-type(5)')[
-    #         0].string
-    #     is_anonymous = 'TRANS' if is_anonymous == '透明' else 'HIGH_ANON'
-    #     protocol = single_record.select('td:nth-of-type(6)')[
-    #         0].string.upper()
-    #     # 如果期望获得透明，但实际得到是高匿，则代理丢弃
-    #     if setting.proxy_filter.type == self_enum.ProxyType.Transparent:
-    #         if is_anonymous == 'HIGH_ANON':
-    #             continue
-    #     # 如果期望获得高匿，但实际得到是透明，则代理丢弃
-    #     if setting.proxy_filter.type == self_enum.ProxyType.Anonymous or \
-    #             setting.proxy_filter.type == self_enum.ProxyType.High16yun:
-    #         if is_anonymous == 'TRANS':
-    #             continue
-    #     # proxies.append({
-    #     #     'http': '%s:%s' % (ip, port),
-    #     #     'https': '%s:%s' % (ip, port)
-    #     # })
-    #     result.append({'ip': ip, 'port': port, 'protocol': protocol,
-    #                    'type': is_anonymous})
-    # return result
-
-
-def gen_proxy(site):
-    '''
+    采用异步方式发送request，以提高效率
     :param site: list， 提供免费代理的url
     :return:
     '''
     headers = gen_header.gen_limit_header(50)
-
+    # print('gen_proxy_async start')
     result = []
     for single_site in site:
+        # print(single_site['urls'][0])
         if_use_proxy = helper.detect_if_need_proxy(single_site['urls'][0])
-        if_proxy_usable = helper.detect_if_proxy_usable(
-            proxies=setting.BASIC_PROXY, url=single_site['urls'][0])
-        if not if_proxy_usable:
-            logging.warning('代理%s无法连接到%s，忽略' % (setting.BASIC_PROXY,
-                                                single_site['urls'][0]))
-            continue
+        # print('if_use_proxy %s' % if_use_proxy)
+        if if_use_proxy:
+            if_proxy_usable = helper.detect_if_proxy_usable(
+                proxies=setting.BASIC_PROXY, header=random.choice(
+                    headers), url=single_site['urls'][0])
+            if not if_proxy_usable:
+                logging.warning('代理%s无法连接到%s，忽略' % (setting.BASIC_PROXY,
+                                                    single_site['urls'][0]))
+                continue
 
         if 'xicidaili' in single_site['urls'][0]:
+            # xici不支持socks，如果setting中只包含socks4/5，则不作任何处理
+            if not pre_filter.pre_filter_xicidaili():
+                continue
+            print('xici start')
+            task_list = []
+            soup_list = []
             for single_url in single_site['urls']:
                 header = random.choice(headers)
-                soup = helper.send_request_get_response(url=single_url,
-                                                        if_use_proxy=if_use_proxy,
-                                                        proxies=setting.BASIC_PROXY,
-                                                        header=header)
-                result += extra_data_from_page_xicidaili(soup)
+                task_list.append(
+                    gevent.spawn(helper.async_send_request_get_response,
+                                 single_url, if_use_proxy,
+                                 setting.BASIC_PROXY, header, soup_list)
+                )
+            gevent.joinall(task_list)
+            for single_soup in soup_list:
+                result += \
+                    gen_proxy_from_page.extra_data_from_page_xicidaili(
+                        single_soup)
         if 'kuaidaili' in single_site['urls'][0]:
+            # kuaidaili只支持HTTP，无国家
+            if not pre_filter.pre_filter_kuaidaili():
+                continue
+
+            task_list = []
+            soup_list = []
+
             for single_url in single_site['urls']:
                 #  期望透明，但是url是指向高匿，则忽略
-                if self_enum.ProxyType.Transparent in setting.proxy_filter.type:
+                if self_enum.ProxyType.Transparent in \
+                        setting.proxy_filter['type']:
                     if 'intr' not in single_url:
                         continue
                 # 期望高匿，但是url指向透明，忽略
-                if self_enum.ProxyType.Anonymous in setting.proxy_filter.type\
+                if self_enum.ProxyType.Anonymous in \
+                        setting.proxy_filter['type'] \
                         or self_enum.ProxyType.High16yun in \
-                        setting.proxy_filter.type:
+                        setting.proxy_filter['type']:
                     if 'inha' not in single_url:
                         continue
                 header = random.choice(headers)
-                soup = helper.send_request_get_response(url=single_url,
-                                                        if_use_proxy=if_use_proxy,
-                                                        proxies=setting.BASIC_PROXY,
-                                                        header=header)
-                result += extra_data_from_page_kuaidaili(soup)
+                task_list.append(
+                    gevent.spawn(helper.async_send_request_get_response,
+                                 single_url, if_use_proxy,
+                                 setting.BASIC_PROXY, header, soup_list)
+                )
+            gevent.joinall(task_list)
+            for single_soup in soup_list:
+                result += gen_proxy_from_page.extra_data_from_page_kuaidaili(
+                    single_soup)
         if 'proxy-list' in single_site['urls'][0]:
+            # proxy-list只支持HTTP/HTTPS
+            if not pre_filter.pre_filter_proxy_list():
+                continue
+
+            task_list = []
+            soup_list = []
             for single_url in single_site['urls']:
                 header = random.choice(headers)
-                soup = helper.send_request_get_response(url=single_url,
-                                                        if_use_proxy=if_use_proxy,
-                                                        proxies=setting.BASIC_PROXY,
-                                                        header=header)
-                result += extra_data_from_page_proxylist(soup)
+                task_list.append(
+                    gevent.spawn(helper.async_send_request_get_response,
+                                 single_url, if_use_proxy,
+                                 setting.BASIC_PROXY, header, soup_list)
+                )
+
+            gevent.joinall(task_list)
+            for single_soup in soup_list:
+                result += gen_proxy_from_page.extra_data_from_page_proxylist(
+                    single_soup)
+            # print(result)
+        if 'hidemy' in single_site['urls'][0]:
+            task_list = []
+            soup_list = []
+            for single_url in single_site['urls']:
+                header = random.choice(headers)
+                task_list.append(
+                    gevent.spawn(helper.async_send_request_get_response,
+                                 single_url, if_use_proxy,
+                                 setting.BASIC_PROXY, header, soup_list)
+                )
+
+            gevent.joinall(task_list)
+            for single_soup in soup_list:
+                result += gen_proxy_from_page.extra_data_from_page_hidemy(
+                    single_soup)
     return result
 
 
-def check_proxies_validate(single_result, final_result):
+def check_proxies_validate(single_result, header, final_result):
     '''
     :param single_result:dict。 gen_proxy获得的结果中，单个记录。{ip,port,type,protocol}
+    :param header: request的header
     :param final_result:list。为了在协程中直接将valid的proxy提取，直接传入此参数
     :return: boolean。实际上，使用协程时，无法使用此返回值，而是直接将结果放入final_result
     '''
@@ -315,7 +344,7 @@ def check_proxies_validate(single_result, final_result):
     }
     print('check_proxies start')
     # print(proxy)
-    if helper.detect_if_proxy_usable(proxies=proxy):
+    if helper.detect_if_proxy_usable(proxies=proxy, header=header):
         print('代理 %s 有效' % proxy['http'])
         final_result.append(single_result)
         return True
@@ -325,25 +354,7 @@ def check_proxies_validate(single_result, final_result):
         return False
 
 
-# def pool_run(proxies):
-#     # task_list = []
-#     # logging.debug(psutil.cpu_count())
-#     print(time.time())
-#     p = Pool(psutil.cpu_count())
-#     # for single_proxy in proxies:
-#     #     p.apply_async(check_proxies_validate, args=(single_proxy,))
-#     p.apply_async(check_proxies_validate, args=(proxies[0],))
-#     p.apply_async(check_proxies_validate, args=(proxies[1],))
-#     print('Waiting for all subprocesses done...')
-#     start_time = time.time()
-#     p.close()
-#     p.join()
-#     end_time = time.time()
-#     print('All subprocesses done. total cost %s ms' % (end_time-start_time))
-#     # gevent.joinall(task_list)
-
-
-def gevent_run(result):
+def fast_validate_proxy(result):
     '''
     :param result: list。 页面中获得的代理，需要进行检测，是否valid
     :return: list(final_result)
@@ -353,9 +364,16 @@ def gevent_run(result):
     # print(proxies)
     # p = Pool(2)
     final_result = []
+    if len(result) > 10:
+        headers = gen_header.gen_limit_header(len(result))
+    else:
+        headers = gen_header.gen_limit_header(1)
+
     for single_result in result:
+        header = random.choice(headers)
         task_list.append(
-            gevent.spawn(check_proxies_validate, single_result, final_result)
+            gevent.spawn(check_proxies_validate, single_result,
+                         header, final_result)
         )
         # p.apply_async(check_proxies_validate, args=(single_proxy,))
     # p.apply_async(check_proxies_validate, args=(proxies[1],))
@@ -365,28 +383,41 @@ def gevent_run(result):
     end_time = time.time()
     print('All gevent done. total cost %s ms' % (end_time - start_time))
     print(final_result)
-
+    return final_result
 
 if __name__ == '__main__':
     # tmp_proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
     #            {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]
-    # wn: https代理        wt: http代理    透明/高匿混合在同一页面
+
     site = [
         # {
+        #     # wn: https代理        wt: http代理    透明/高匿混合在同一页面
+        #     # socks代理验证时间太长，所以不采用
         #     'urls': ['https://www.xicidaili.com/%s/%s' % (m, n) for m in [
-        #         'wn', 'wt'] for n in range(1, 3)],
+        #         'wn', 'wt'] for n in range(1, 4)],
         # },
         # {
         #     # inha：国内高匿   intr：国内透明
+        #     # kuaidaili只有http代理
         #     'urls': ['https://www.kuaidaili.com/free/%s/%s' % (m, n) for m in
         #              ['inha', 'intr'] for n in range(1, 5)]
         # },
+        # {
+        #     # proxy-list只有http/https代理
+        #     'urls': ['https://proxy-list.org/english/index.php?p=%s' % m for m
+        #              in range(1, 2)]
+        # },
         {
-            'urls': ['https://proxy-list.org/english/index.php?p=%s' for m
-                     in range(1, 2)]
-        },
+            # hidemy.name支持所有protocol，2种type，和国家
+            'urls': ['https://hidemy.name/en/proxy-list/?start=%s#list' %
+                     str((m-1)*64) if m > 1 else
+                     'https://hidemy.name/en/proxy-list/?start=1#list'
+                     for m in range(1, 3)]
+        }
     ]
-    result = gen_proxy(site)
+    print(site)
+    result = gen_proxy_async(site=site)
     print(result)
     # pool_run(tmp_proxies)
-    # gevent_run(result)
+    r = fast_validate_proxy(result)
+    print(r)

@@ -23,9 +23,12 @@ class ProxyType(Enum):
 
 @unique
 class ProtocolType(Enum):
-    Http = 0
-    Https = 1
-
+    HTTP = 0
+    HTTPS = 1
+    SOCKS4 = 2
+    SOCKS5 = 3
+    SOCKS = 4
+    ALL = 5
 
 @unique
 class ChromeType(Enum):
@@ -42,9 +45,54 @@ class OsType(Enum):
     All = 2
 
 @unique
+# sort -u a | awk '{print $1 " = " NR}'
 class Country(Enum):
-    China = 0
-    All = 1
+    Argentina = 1
+    Australia = 2
+    Bangladesh = 3
+    Botswana = 4
+    Brazil = 5
+    Cambodia = 6
+    Cameroon = 7
+    China = 8
+    Colombia = 9
+    Czech = 10
+    Denmark = 11
+    Ecuador = 12
+    Germany = 13
+    Greece = 14
+    Hong = 15
+    Hungary = 16
+    India = 17
+    Indonesia = 18
+    Iraq = 19
+    Italy = 20
+    Japan = 21
+    Kazakhstan = 22
+    Latvia = 23
+    Malaysia = 24
+    Mexico = 25
+    Mongolia = 26
+    Nepal = 27
+    Pakistan = 28
+    Peru = 29
+    Philippines = 30
+    Russia = 31
+    Sweden = 32
+    Syrian = 33
+    Thailand = 34
+    Turkey = 35
+    Ukrain = 36
+    United = 37
+    All = 38
 
 if __name__ == '__main__':
-    print('China' in Country)
+    import setting
+    print(type(setting.proxy_filter['country']))
+    # a=[Country.China]
+    # print(Country['China'] in a)
+    # print('All2' in Country.__members__)
+    # print(Country.__members__.items())
+    # for k,v in Country.__members__:
+    #     print(k)
+    #     print(v.value)

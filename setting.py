@@ -7,7 +7,9 @@ BASIC_PROXY = {
 }
 
 proxy_filter = {
-    'type': [self_enum.ProxyType.High16yun],
+    'type': [self_enum.ProxyType.All],
+    'protocol': [self_enum.ProtocolType.HTTP],
+    # https://proxy-list.org中代理来自全球，使用country进行过滤
     'country': [self_enum.Country.China],
 }
 # proxy_type = self_enum.ProxyType.High16yun
