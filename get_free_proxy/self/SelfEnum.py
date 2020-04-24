@@ -1,23 +1,50 @@
 #! /usr/bin/env python3
-
 # -*- coding:utf-8 -*-
 
 __author__ = 'zwzw911'
 
 from enum import Enum, unique
 
+# # 使用url作为value，以便检测是否需要代理才能连接
+# @unique
+# class SupportedWeb(Enum):
+#     Xici = 'https://www.xicidaili.com'
+#     Kuai = 'https://www.kuaidaili.com/free'
+#     Hidemy = 'https://hidemy.name/en/proxy-list/#list'
+#     Proxylist = 'https://proxy-list.org/english'
+#     All = 4
+
+# site会把enum转换成list，检测是否需要代理直接使用list中的元素
+@unique
+class SupportedWeb(Enum):
+    Xici = 0
+    Kuai = 1
+    Hidemy = 2
+    Proxylist = 3
+    All = 4
+
+
+
+
+@unique
+class StorageType(Enum):
+    Redis = 0
+    Mysql = 1
+    File = 2
+    All = 3
+
 
 @unique
 class ProxyType(Enum):
     # 透明：对方服务器知道你使用了代理，也知道你的真实IP。
     # REMOTE_ADDR = ProxyIP，HTTP_VIA = ProxyIP，HTTP_X_FORWARDED_FOR = YourIP
-    Transparent = 0
+    TRANS = 0
     # 匿名：对方服务器知道你使用了代理，但不知道你的真实IP。
     # REMOTE_ADDR = ProxyIP，HTTP_VIA = ProxyIP，HTTP_X_FORWARDED_FOR = ProxyIP
-    Anonymous = 1
+    ANON = 1
     # 高匿名：对方服务器不知道你使用了代理，也不知道你的真实IP。
     # REMOTE_ADDR = ProxyIP，HTTP_VIA = NULL，HTTP_X_FORWARDED_FOR = NULL
-    High16yun = 2
+    HIGH_ANON = 2
     All = 3
 
 
@@ -27,22 +54,8 @@ class ProtocolType(Enum):
     HTTPS = 1
     SOCKS4 = 2
     SOCKS5 = 3
-    SOCKS = 4
-    ALL = 5
-
-@unique
-class ChromeType(Enum):
-    Stable = 0  #稳定版
-    Beta = 1    #测试版
-    Dev = 2      #开发版
-    Canary = 3  #金丝雀版
-    All = 4     #所有版本
-
-@unique
-class OsType(Enum):
-    Win32 = 0
-    Win64 = 1
-    All = 2
+    # SOCKS = 4
+    All = 5
 
 @unique
 # sort -u a | awk '{print $1 " = " NR}'
@@ -87,12 +100,5 @@ class Country(Enum):
     All = 38
 
 if __name__ == '__main__':
-    import setting
-    print(type(setting.proxy_filter['country']))
-    # a=[Country.China]
-    # print(Country['China'] in a)
-    # print('All2' in Country.__members__)
-    # print(Country.__members__.items())
-    # for k,v in Country.__members__:
-    #     print(k)
-    #     print(v.value)
+    a = 'Xici'
+    print(type(SupportedWeb.Xici))
