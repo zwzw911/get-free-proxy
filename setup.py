@@ -4,9 +4,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="get_free_proxy", # Replace with your own
+    name="get_free_proxy",
     # username
-    version="0.0.1",
+    version="0.1.1",
     author="zwzw911",
     author_email="zwzw911110@163.com",
     description="A package to get free proxy",

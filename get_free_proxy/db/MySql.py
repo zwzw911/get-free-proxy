@@ -50,8 +50,12 @@ class MySql(BaseDb):
 
     def create_db(self, *, force=False):
         super().create_db()
+        # print('create db')
         sql = 'show databases like \'%s\'' % self.db_name
+        # try:
         db_exists = self.cursor.execute(sql)
+        # except AttributeError as e:
+        #     print(e)
         if db_exists == 1:
             if not force:
                 logging.debug('数据库%s已经存在，无需强制创建' % self.db_name)

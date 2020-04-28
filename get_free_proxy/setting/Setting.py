@@ -24,7 +24,80 @@ class GfpSetting(object):
     '''
     __slots__ = ('_proxy_type', '_protocol', '_country', '_storage_type',
                  '_mysql', '_redis', '_result_file_path', '_valid_time_in_db',
-                 '_site_max_page_no', '_site')
+                 '_site_max_page_no', '_raw_site', '_site')
+
+    def _generate_site(self, enumset_site, enumset_protocol, int_site_max_page_no):
+        '''
+        site是根据_protocol（xici)，以及_site_max_page_no生成的，其中任意一个参数变化，
+        都要重新生成self.site
+        :return:list。直接赋值给self._site
+        '''
+        result = []
+        # xici
+        if gfp_self_enum.SupportedWeb.Xici in enumset_site:
+            xici_tmp = []
+            # print(enumset_protocol)
+            if gfp_self_enum.ProtocolType.HTTP in enumset_protocol:
+                xici_tmp.append('wt')
+            if gfp_self_enum.ProtocolType.HTTPS in enumset_protocol:
+                xici_tmp.append('wn')
+            if len(xici_tmp) > 0:
+                result.append(
+                    {
+                        # wn: https代理        wt: http代理    透明/高匿混合在同一页面
+                        # socks代理验证时间太长，所以不采用
+                        'urls': ['https://www.xicidaili.com/%s/%s' % (m, n) for m in xici_tmp
+                                 for n in range(1, int_site_max_page_no)],
+                        'enum_site': gfp_self_enum.SupportedWeb.Xici,
+                        'need_proxy': False,
+                        'force_render':False
+                    },
+                )
+        # kuai
+        if gfp_self_enum.SupportedWeb.Kuai in enumset_site:
+            # kuai只支持HTTP
+            if gfp_self_enum.ProtocolType.HTTP in enumset_protocol:
+                result.append(
+                    {
+                        # inha：国内高匿   intr：国内透明
+                        # kuaidaili只有http代理
+                        'urls': ['https://www.kuaidaili.com/free/%s/%s' % (m, n) for m in
+                                 ['inha', 'intr'] for n in range(1, int_site_max_page_no)],
+                        'enum_site': gfp_self_enum.SupportedWeb.Kuai,
+                        'need_proxy': False,
+                        'force_render': False
+                    },
+                )
+        # proxy-list
+        if gfp_self_enum.SupportedWeb.Proxylist in enumset_site:
+            if gfp_self_enum.ProtocolType.HTTP in enumset_protocol or \
+                    gfp_self_enum.ProtocolType.HTTPS in enumset_protocol:
+                result.append(
+                    {
+                        # proxy-list只有http/https代理
+                        'urls': ['https://proxy-list.org/english/index.php?p=%s' % m for m
+                                 in range(1, int_site_max_page_no)],
+                        'enum_site': gfp_self_enum.SupportedWeb.Proxylist,
+                        'need_proxy': False,
+                        'force_render': False
+                    },
+                )
+        # hidemy
+        if gfp_self_enum.SupportedWeb.Hidemy in enumset_site:
+            result.append(
+                {
+                    # hidemy.name支持所有protocol，2种type，和国家
+                    'urls': ['https://hidemy.name/en/proxy-list/?start=%s#list' %
+                             str((m - 1) * 64) if m > 1 else
+                             'https://hidemy.name/en/proxy-list/?start=1#list'
+                             for m in range(1, int_site_max_page_no)],
+                    'enum_site': gfp_self_enum.SupportedWeb.Hidemy,
+                    'need_proxy': False,
+                    'force_render': False
+                }
+            )
+
+        return result
 
     def __init__(self):
         self._proxy_type = {gfp_self_enum.ProxyType.HIGH_ANON}
@@ -50,40 +123,16 @@ class GfpSetting(object):
         self._result_file_path = os.path.join(tempfile.gettempdir(), 'result.json')
         self._valid_time_in_db = 86400
         self._site_max_page_no = 5
-        self._site = [
-            {
-                # wn: https代理        wt: http代理    透明/高匿混合在同一页面
-                # socks代理验证时间太长，所以不采用
-                'urls': ['https://www.xicidaili.com/%s/%s' % (m, n) for m in [
-                    'wn', 'wt'] for n in range(1, self._site_max_page_no)],
-                'enum_site': gfp_self_enum.SupportedWeb.Xici,
-                'need_proxy': False
-            },
-            {
-                # inha：国内高匿   intr：国内透明
-                # kuaidaili只有http代理
-                'urls': ['https://www.kuaidaili.com/free/%s/%s' % (m, n) for m in
-                         ['inha', 'intr'] for n in range(1, self._site_max_page_no)],
-                'enum_site': gfp_self_enum.SupportedWeb.Kuai,
-                'need_proxy': False
-            },
-            {
-                # proxy-list只有http/https代理
-                'urls': ['https://proxy-list.org/english/index.php?p=%s' % m for m
-                         in range(1, self._site_max_page_no)],
-                'enum_site': gfp_self_enum.SupportedWeb.Proxylist,
-                'need_proxy': False
-            },
-            {
-                # hidemy.name支持所有protocol，2种type，和国家
-                'urls': ['https://hidemy.name/en/proxy-list/?start=%s#list' %
-                         str((m - 1) * 64) if m > 1 else
-                         'https://hidemy.name/en/proxy-list/?start=1#list'
-                         for m in range(1, self._site_max_page_no)],
-                'enum_site': gfp_self_enum.SupportedWeb.Hidemy,
-                'need_proxy': False
-            }
-        ]
+
+        self._raw_site = {gfp_self_enum.SupportedWeb.Xici,
+                          gfp_self_enum.SupportedWeb.Kuai,
+                          gfp_self_enum.SupportedWeb.Proxylist,
+                          gfp_self_enum.SupportedWeb.Hidemy
+                          }
+        self._site = self._generate_site(enumset_site=self._raw_site,
+                                         enumset_protocol=self.protocol,
+                                         int_site_max_page_no=self._site_max_page_no
+                                         )
 
     @property
     def proxy_type(self):
@@ -103,11 +152,14 @@ class GfpSetting(object):
 
     @protocol.setter
     def protocol(self, value):
-        r = gbh_helper.enum_set_check(value=value, enum_type=gfp_self_enum.ProxyType)
+        r = gbh_helper.enum_set_check(value=value, enum_type=gfp_self_enum.ProtocolType)
         if r is None:
             return
         else:
             self._protocol = r
+            self._site = self._generate_site(enumset_site=self._raw_site,
+                                             enumset_protocol=self._protocol,
+                                             int_site_max_page_no=self._site_max_page_no)
 
     @property
     def country(self):
@@ -183,71 +235,96 @@ class GfpSetting(object):
     def site_max_page_no(self, value):
         if not gbh_helper.match_expect_type(value, 'int'):
             raise ValueError('site_max_page_no的值必须是整数')
-        if value < 2 or value > 10:
-            raise ValueError('site_max_page_no的值必须在2到10之间')
-        self._site_max_page_no = value
+        if value < 1 or value > 10:
+            raise ValueError('site_max_page_no的值必须在1到9之间')
+        # 实际使用列表表达式生成url，因此site_max_page_no要+1，符合感受
+        self._site_max_page_no = value+1
+
+        self._site = self._generate_site(enumset_site=self._raw_site,
+                                         enumset_protocol=self._protocol,
+                                         int_site_max_page_no=self._site_max_page_no)
+    @property
+    def raw_site(self):
+        return self._raw_sitesit
+
+    @raw_site.setter
+    def raw_site(self, value):
+        r = gbh_helper.enum_set_check(value=value, enum_type=gfp_self_enum.SupportedWeb)
+        if r is None:
+            return
+        else:
+            self._raw_site = r
+            self._site = self._generate_site(enumset_site=self._raw_site,
+                                             enumset_protocol=self._protocol,
+                                             int_site_max_page_no=self._site_max_page_no)
 
     @property
     def site(self):
         return self._site
 
-    @site.setter
-    def site(self, value):
-        # set
-        if not gbh_helper.match_expect_type(value, 'set'):
-            raise ValueError('site必须是set')
-        # 当前仅仅支持https://www.xicidaili.com/https://www.kuaidaili.com/https://hidemy.name/
-        # valid_url = set('https://www.xicidaili.com','https://www.kuaidaili.com','https://hidemy.name')
-        r = gbh_helper.enum_set_check(value, gfp_self_enum.SupportedWeb)
-        if r is None:
-            return
-
-        # 清空数组，根据输入重新赋值，所有url默认无需使用代理
-        self._site = []
-        if gfp_self_enum.SupportedWeb.Xici in r:
-            self._site.append(
-                {
-                    # wn: https代理        wt: http代理    透明/高匿混合在同一页面
-                    # socks代理验证时间太长，所以不采用
-                    'urls': ['https://www.xicidaili.com/%s/%s' % (m, n) for m in [
-                        'wn', 'wt'] for n in range(1, self._site_max_page_no)],
-                    'enum_site': gfp_self_enum.SupportedWeb.Xici,
-                    'need_proxy': False
-                }
-            )
-        if gfp_self_enum.SupportedWeb.Kuai in r:
-            self._site.append(
-                {
-                    # inha：国内高匿   intr：国内透明
-                    # kuaidaili只有http代理
-                    'urls': ['https://www.kuaidaili.com/free/%s/%s' % (m, n) for m in
-                             ['inha', 'intr'] for n in range(1, self._site_max_page_no)],
-                    'enum_site': gfp_self_enum.SupportedWeb.Kuai,
-                    'need_proxy': False
-                }
-            )
-        if gfp_self_enum.SupportedWeb.Proxylist in r:
-            self._site.append(
-                {
-                    # proxy-list只有http/https代理
-                    'urls': ['https://proxy-list.org/english/index.php?p=%s' % m for m
-                             in range(1, self._site_max_page_no)],
-                    'enum_site': gfp_self_enum.SupportedWeb.Proxylist,
-                    'need_proxy': False
-                }
-            )
-        if gfp_self_enum.SupportedWeb.Hidemy in r:
-            self._site.append(
-                {
-                    # hidemy.name支持所有protocol，2种type，和国家
-                    'urls': ['https://hidemy.name/en/proxy-list/?start=%s#list' %
-                             str((m - 1) * 64) if m > 1 else
-                             'https://hidemy.name/en/proxy-list/?start=1#list'
-                             for m in range(1, self._site_max_page_no)],
-                    'enum_site': gfp_self_enum.SupportedWeb.Hidemy,
-                    'need_proxy': False
-                }
-            )
+    # @site.setter
+    # def site(self, value):
+    #     # set
+    #     if not gbh_helper.match_expect_type(value, 'set'):
+    #         raise ValueError('site必须是set')
+    #     # 当前仅仅支持https://www.xicidaili.com/https://www.kuaidaili.com/https://hidemy.name/
+    #     # valid_url = set('https://www.xicidaili.com','https://www.kuaidaili.com','https://hidemy.name')
+    #     r = gbh_helper.enum_set_check(value, gfp_self_enum.SupportedWeb)
+    #     if r is None:
+    #         return
+    #
+    #     # 清空数组，根据输入重新赋值，所有url默认无需使用代理
+    #     self._site = []
+    #     if gfp_self_enum.SupportedWeb.Xici in r:
+    #         xici_tmp = []
+    #         if gfp_self_enum.ProtocolType.HTTP in self._protocol:
+    #             xici_tmp.append('wt')
+    #         if gfp_self_enum.ProtocolType.HTTPS in self._protocol:
+    #             xici_tmp.append('wn')
+    #         if len(xici_tmp) > 0:
+    #             self._site.append(
+    #                 {
+    #                     # wn: https代理        wt: http代理    透明/高匿混合在同一页面
+    #                     # socks代理验证时间太长，所以不采用
+    #                     'urls': ['https://www.xicidaili.com/%s/%s' % (m, n) for m in [
+    #                         'wn', 'wt'] for n in range(1, self._site_max_page_no)],
+    #                     'enum_site': gfp_self_enum.SupportedWeb.Xici,
+    #                     'need_proxy': False
+    #                 }
+    #             )
+    #     if gfp_self_enum.SupportedWeb.Kuai in r:
+    #         self._site.append(
+    #             {
+    #                 # inha：国内高匿   intr：国内透明
+    #                 # kuaidaili只有http代理
+    #                 'urls': ['https://www.kuaidaili.com/free/%s/%s' % (m, n) for m in
+    #                          ['inha', 'intr'] for n in range(1, self._site_max_page_no)],
+    #                 'enum_site': gfp_self_enum.SupportedWeb.Kuai,
+    #                 'need_proxy': False
+    #             }
+    #         )
+    #     if gfp_self_enum.SupportedWeb.Proxylist in r:
+    #         self._site.append(
+    #             {
+    #                 # proxy-list只有http/https代理
+    #                 'urls': ['https://proxy-list.org/english/index.php?p=%s' % m for m
+    #                          in range(1, self._site_max_page_no)],
+    #                 'enum_site': gfp_self_enum.SupportedWeb.Proxylist,
+    #                 'need_proxy': False
+    #             }
+    #         )
+    #     if gfp_self_enum.SupportedWeb.Hidemy in r:
+    #         self._site.append(
+    #             {
+    #                 # hidemy.name支持所有protocol，2种type，和国家
+    #                 'urls': ['https://hidemy.name/en/proxy-list/?start=%s#list' %
+    #                          str((m - 1) * 64) if m > 1 else
+    #                          'https://hidemy.name/en/proxy-list/?start=1#list'
+    #                          for m in range(1, self._site_max_page_no)],
+    #                 'enum_site': gfp_self_enum.SupportedWeb.Hidemy,
+    #                 'need_proxy': False
+    #             }
+    #         )
 
 
 # FREE_PROXY_SITE = [

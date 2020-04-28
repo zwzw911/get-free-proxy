@@ -1,8 +1,11 @@
 #! /usr/bin/env python3
 # -*- coding:utf-8 -*-
 
-import gevent
+# import gevent
+from requests_html import AsyncHTMLSession
 
+asession = AsyncHTMLSession()
+# import get_free_proxy.main.
 import random
 import logging
 
@@ -161,7 +164,7 @@ def gen_proxy_sync(enum_site, sites, gfp_setting, headers, proxies):
 #
 #     return result
 
-def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies):
+def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies, force_render=False):
     '''
     采用异步方式发送request，以提高效率
     首先获取sites中总共的url数量
@@ -170,12 +173,15 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies):
                     key为urls/enum_site和need_proxy。{urls:[], enum_site:Xici,need_proxy:boolean}
     :param gfp_setting:
     :param headers: list, 连接sites中所有url时，使用的header，为了保险，每个url使用不同的header
-    :param proxies: list，如果site需要代理连接，使用的代理池，为了提高速度，数量和sites中的url数量一致
+    :param proxies: list，如果site需要代理连接，使用的代理池。代理的数量可能小于sites.urls的数量。
+                    如果代理的数量大于sites.urls，pop一个（使用的代理无重复）；否则，随机选择一个（可能重复）
                     前提是，所有代理已经经过验证，可以连接到代理url
+    :param force_render: requests-html是否需要render页面（某些页面需要执行js才能显示html元素）
     :return:
     '''
-    # headers = gen_header.gen_limit_header(50)
+    # # headers = gen_header.gen_limit_header(50)
     # print('gen_proxy_async start')
+    # print('proxires %s' % proxies)
     result = []
 
     pre_filter_function = gfp_enum_match_inst.getPrefilterFunction(enum_site)
@@ -183,13 +189,15 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies):
         raise ValueError('无法根据网站名称%s找到对应的pre_filter函数' % enum_site.name)
     # xici不支持socks，如果setting中只包含socks4/5，则不作任何处理
     if not pre_filter_function(gfp_setting):
+        # print('pre filter not pass')
         return
     # print('xici start')
     task_list = []
-    soup_list = []
 
     if_use_proxy = sites['need_proxy']
+
     url_num = len(sites['urls'])
+    if_proxy_num_larger_than_url_num = url_num <= len(proxies)
     for single_url in sites['urls']:
         # kuaidaili特殊处理
         if enum_site == gfp_self_enum.SupportedWeb.Kuai:
@@ -208,26 +216,42 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies):
         header = headers.pop()
         proxy = None
         if if_use_proxy:
-            if url_num <= len(proxies):
+            if if_proxy_num_larger_than_url_num:
                 proxy = proxies.pop()
             else:
                 proxy = random.choice(proxies)
 
-        task_list.append(
-            gevent.spawn(gbh_helper.async_send_request_get_response,
-                         single_url, if_use_proxy,
-                         proxy, header, soup_list)
-        )
-    gevent.joinall(task_list)
+
+        # print("if_use_proxy: %s" % if_use_proxy)
+        # print('proxy is %s' % proxy)
+        # print('header is %s' % header)
+        # print('single_url is %s' % single_url)
+        task_list.append(lambda url=single_url, if_use_proxy=if_use_proxy,
+                                proxies=proxy, header=header,
+                                force_render=force_render:
+                                gbh_helper.async_send_request_get_response(
+                                    url, if_use_proxy, proxies, header,
+                                    force_render)
+                         )
+
+    raw_results = asession.run(*task_list)
+    # print('raw result is %s' % raw_results)
 
     extract_data_function = gfp_enum_match_inst.getExtractDataFunction(enum_site)
     # logging.info('extract_data_function is %s' % extract_data_function)
-    if pre_filter_function is None:
+    if extract_data_function is None:
         raise ValueError('无法根据网站名称%s找到对应的extract_data函数' % enum_site.name)
-    for single_soup in soup_list:
-        # logging.info('single_soup is %s' % single_soup)
-        result += extract_data_function(single_soup, gfp_setting)
+    # print(raw_results)
 
+    for single_raw_result in raw_results:
+        # print('single_raw_result.html is %s' % single_raw_result.html)
+        # if force_render:
+        #     await single_raw_result.html.arender()
+            # print(single_raw_result)
+        # logging.info('single_soup is %s' % single_soup)
+        # print('single_raw_result.html after rendering %s' % single_raw_result.html)
+        result += extract_data_function(single_raw_result, gfp_setting)
+    # print('result is %s ' % result)
     return result
 
 
@@ -343,9 +367,15 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies):
 #     return result
 
 
-
-
 if __name__ == '__main__':
+    # from requests_html import AsyncHTMLSession
+    #
+    # asession = AsyncHTMLSession()
+    gen_proxy_async(enum_site=None,
+                          sites=None,
+                          gfp_setting=None,
+                          headers=None,
+                          proxies=None)
     # print(sys.path)
     # tmp_proxies = [{'http': '49.83.243.248:8118', 'https': '49.83.243.248:8118'},
     #            {'http': '42.55.252.102:1133', 'https': '42.55.252.102:1133'}]

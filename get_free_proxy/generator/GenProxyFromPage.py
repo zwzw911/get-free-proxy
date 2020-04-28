@@ -14,25 +14,26 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-def extra_data_from_page_xicidaili(soup, gfp_setting):
+def extra_data_from_page_xicidaili(r, gfp_setting):
     '''
     筛选protocol（HTTP/HTTPS，socks在gen_proxy中处理）和proxy_type（透明/匿名）
-    :param soup: 读取页面的html内容
+    :param r: requests-html
     :return: list，当前页面所有proxy记录
     '''
-    records = soup.select('#ip_list tr:not(:first-child)')
+    # print(r.html)
+    records = r.html.find('#ip_list tr:not(:first-child)')
     result = []
     # logging.info(gfp_setting.proxy_type)
     # logging.info(gfp_setting.protocol)
     for single_record in records:
         # print(single_record)
-        ip = single_record.select('td:nth-of-type(2)')[0].string
-        port = single_record.select('td:nth-of-type(3)')[0].string
-        is_anonymous = single_record.select('td:nth-of-type(5)')[
-            0].string
+        ip = single_record.find('td:nth-of-type(2)')[0].text
+        port = single_record.find('td:nth-of-type(3)')[0].text
+        is_anonymous = single_record.find('td:nth-of-type(5)')[
+            0].text
         is_anonymous = 'TRANS' if is_anonymous == '透明' else 'HIGH_ANON'
-        protocol = single_record.select('td:nth-of-type(6)')[
-            0].string.upper()
+        protocol = single_record.find('td:nth-of-type(6)')[
+            0].text.upper()
         # # 期望是所有，直接添加
         # if gfp_self_enum.ProxyType.All in gfp_setting.proxy_type and \
         #         gfp_self_enum.ProtocolType.ALL in gfp_setting.protocol:
@@ -76,44 +77,44 @@ def extra_data_from_page_xicidaili(soup, gfp_setting):
     return result
 
 
-def extra_data_from_page_kuaidaili(soup, gfp_setting):
+def extra_data_from_page_kuaidaili(r, gfp_setting):
     '''
     proxy-type（透明/匿名）和protocol筛选在上级完成。无country筛选
-    :param soup: 读取页面的html内容
+    :param r: requests-html
     :return: list，当前页面所有proxy记录
     '''
-    records = soup.select('tbody>tr')
+    records = r.html.find('tbody>tr')
     result = []
     for single_record in records:
-        ip = single_record.select('td[data-title=IP]')[0].string
-        port = single_record.select('td[data-title=PORT]')[0].string
-        is_anonymous = single_record.select('td[data-title=匿名度]')[
-            0].string
+        ip = single_record.find('td[data-title=IP]')[0].text
+        port = single_record.find('td[data-title=PORT]')[0].text
+        is_anonymous = single_record.find('td[data-title=匿名度]')[
+            0].text
         is_anonymous = 'TRANS' if is_anonymous == '透明' else 'HIGH_ANON'
-        protocol = single_record.select('td[data-title=类型]')[
-            0].string.upper()
+        protocol = single_record.find('td[data-title=类型]')[
+            0].text.upper()
         result.append({'ip': ip, 'port': port, 'protocol': protocol,
                        'proxy_type': is_anonymous})
     return result
 
 
-def extra_data_from_page_proxylist(soup, gfp_setting):
+def extra_data_from_page_proxylist(r, gfp_setting):
     '''
     此处过来国家和protocol。proxy_type（透明/匿名）在gen_proxy中过滤
-    :param soup: 读取页面的html内容
+    :param r: requests-html
     :return: list，当前页面所有proxy记录
     '''
-    # print(soup.string)
+    # print(r.string)
     result = []
-    records = soup.select('div.table>ul')
+    records = r.html.find('div.table>ul')
     # print(gfp_setting.protocol)
     # print(gfp_setting.proxy_type)
     # print(gfp_setting.country)
     for single_record in records:
         # print(single_record)
-        raw_country = single_record.select(
+        raw_country = single_record.find(
             'li.country-city>div>span.country>span.country-code>span.name')[
-            0].string
+            0].text
         country = raw_country.split(' ')[1]
 
         if country not in gfp_self_enum.Country.__members__:
@@ -126,7 +127,7 @@ def extra_data_from_page_proxylist(soup, gfp_setting):
                 continue
 
         # 如果是HTTPS，包含在<strong>HTTPS</strong>中；如果是HTTP，直接在li下
-        raw_protocol = single_record.select('li.https>strong')
+        raw_protocol = single_record.find('li.https>strong')
         if len(raw_protocol) > 0:
             protocol = 'HTTPS'
         else:
@@ -146,13 +147,14 @@ def extra_data_from_page_proxylist(soup, gfp_setting):
                     not in gfp_setting.protocol:
                 continue
         # 将Proxy('MjAzLjE3Ni4xMzMuMzg6ODA4MA==')变成['1.1.1.1', '8080']的格式
-        raw_ip = single_record.select('li.proxy')[0].get_text()
+        raw_ip = single_record.find('li.proxy')[0].text
+        # print(raw_ip)
         ip_base64 = re.match(r'Proxy\(\'(.*)\'\)', raw_ip).group(1)
         ip_str = base64.b64decode(ip_base64).decode('utf-8').split(':')
         ip = ip_str[0]
         port = ip_str[1]
 
-        raw_proxy_type = single_record.select('li.type')[0].string
+        raw_proxy_type = single_record.find('li.type')[0].text
         # print('国家:%s , ip: %s, port: %s, 协议:%s, 类型:%s' % (country, ip, port,
         #                                                   protocol, type))
         # print(raw_type)
@@ -174,18 +176,18 @@ def extra_data_from_page_proxylist(soup, gfp_setting):
     return result
 
 
-def extra_data_from_page_hidemy(soup, gfp_setting):
+def extra_data_from_page_hidemy(r, gfp_setting):
     '''
     筛选protocol/type/country
-    :param soup: 读取页面的html内容
+    :param r: requests-html
     :return: list，当前页面所有proxy记录
     '''
     result = []
-    records = soup.select('table.proxy__t>tbody>tr')
+    records = r.html.find('table.proxy__t>tbody>tr')
     for single_record in records:
-        ip = single_record.select('td:nth-of-type(1)')[0].string
-        port = single_record.select('td:nth-of-type(2)')[0].string
-        country = single_record.select('td:nth-of-type(3)>div')[0].string
-        protocol = single_record.select('td:nth-of-type(5)')[0].string
-        raw_type = single_record.select('td:nth-of-type(6)')[0].string
+        ip = single_record.find('td:nth-of-type(1)')[0].string
+        port = single_record.find('td:nth-of-type(2)')[0].string
+        country = single_record.find('td:nth-of-type(3)>div')[0].string
+        protocol = single_record.find('td:nth-of-type(5)')[0].string
+        raw_type = single_record.find('td:nth-of-type(6)')[0].string
         print('%s,%s,%s,%s,%s' % (ip, port, country, protocol, raw_type))
