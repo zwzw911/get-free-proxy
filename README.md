@@ -49,7 +49,7 @@ create get_free_proxy setting
 start to get free proxy    
 
 `mainOp = MainOp(cur_gfp_setting, cur_gbh_setting) `       
-首先清空数据库(反正都要全部重新读取网页）  
+ 首先清空数据库(反正都要全部重新读取网页) 
 `mainOp.del_proxy()`   
 检测url是否需要使用代理    
 `mainOp.check_if_site_need_proxy()`    
@@ -136,24 +136,9 @@ default: ***{gfp_self_enum.SupportedWeb.Xici}***
 description: this parameter determine which site will be used to extract proxy. currently only support 4 site:
 https://www.xicidaili.com, https://www.kuaidaili.com/free, https://hidemy.name/en/proxy-list/#list, https://proxy-list.org/english.
 and if All is set, will be replace by above 4 site.   
-
-start to use    
-`import get_free_proxy.main.main as main`    
-`mainOp = main.MainOp(cur_gfp_setting, cur_gbh_setting)`    
-delete all exist proxy   
-`mainOp.del_proxy()`      
-`mainOp.check_if_site_need_proxy()`   
-some website that provide free proxy can connect directly       
-`proxies = mainOp.get_proxy_without_proxy()`  
-not all proxy are usable, so should pick up useful proxy      
-`validate_proxies = mainOp.async_validate_proxies(proxies, 'https://www.baidu.com')`      
-some website that provide free proxy must use proxy, use proxy get in mainOp.get_proxy_without_proxy()       
-`tmp_proxies = mainOp.get_proxy_with_proxy(proxies=proxies)`    
-validate usable again    
-`validate_proxies += mainOp.async_validate_proxies(tmp_proxies, 'https://www.baidu.com')`      
-store valid proxy to use later    
-`mainOp.save_proxy(proxies=tmp_proxies)`     
+  
 
 ### change history
 0.1.0  use requests-html replace requests    
-0.1.1  match gen_browser 0.1.3: when gen_header, add host base on parameter url    
+0.1.1  match gen_browser 0.1.3: when gen_header, add host base on parameter url
+0.1.2  add support for zh-cn in setup.py by add encoding="utf-8"    
