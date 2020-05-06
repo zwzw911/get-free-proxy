@@ -173,7 +173,8 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies, force_rende
                     key为urls/enum_site和need_proxy。{urls:[], enum_site:Xici,need_proxy:boolean}
     :param gfp_setting:
     :param headers: list, 连接sites中所有url时，使用的header，为了保险，每个url使用不同的header
-    :param proxies: list，如果site需要代理连接，使用的代理池。代理的数量可能小于sites.urls的数量。
+    :param proxies: list/None， None说明无需代理
+                    如果site需要代理连接，使用的代理池。代理的数量可能小于sites.urls的数量。
                     如果代理的数量大于sites.urls，pop一个（使用的代理无重复）；否则，随机选择一个（可能重复）
                     前提是，所有代理已经经过验证，可以连接到代理url
     :param force_render: requests-html是否需要render页面（某些页面需要执行js才能显示html元素）
@@ -197,7 +198,8 @@ def gen_proxy_async(enum_site, sites, gfp_setting, headers, proxies, force_rende
     if_use_proxy = sites['need_proxy']
 
     url_num = len(sites['urls'])
-    if_proxy_num_larger_than_url_num = url_num <= len(proxies)
+    if if_use_proxy:
+        if_proxy_num_larger_than_url_num = url_num <= len(proxies)
     for single_url in sites['urls']:
         # kuaidaili特殊处理
         if enum_site == gfp_self_enum.SupportedWeb.Kuai:

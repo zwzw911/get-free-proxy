@@ -56,4 +56,5 @@ def win_start_mysql(service='MySQL'):
 
 if __name__ == '__main__':
     # win_check_mysql_and_run()
+    # print(sys.platform)
     pass

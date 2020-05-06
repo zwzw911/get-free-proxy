@@ -40,12 +40,13 @@ class MainOp(object):
 
             if not checker.win_check_mysql_running():
                 checker.win_start_mysql()
-            if not self._mysql_inst.connect_to_mysql():
-                raise Exception('can not connect to mysql, please check if service Mysql already run')
+
             # 初始化mysql实例
             self._mysql_inst = mysql.MySql(host=setting.mysql['host'],
                                            user=setting.mysql['user'],
                                            pwd=setting.mysql['pwd'])
+            if not self._mysql_inst.connect_to_mysql():
+                raise Exception('can not connect to mysql, please check if service Mysql already run')
             self._mysql_inst.create_db()
             self._mysql_inst.create_tbl()
         else:
@@ -133,11 +134,6 @@ class MainOp(object):
                                                                gfp_setting=self._setting,
                                                                headers=generated_headers,
                                                                proxies=None)
-                # r = gen_proxy.gen_proxy_async(asession_inst=asession, enum_site=gfp_self_enum.SupportedWeb.Xici,
-                #                               sites={'urls': ['https://www.baidu.com']},
-                #                               gfp_setting={},
-                #                               headers=[],
-                #                               proxies=[])
         return origin_result
         # print(origin_result)
 
@@ -309,26 +305,26 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     cur_gbh_setting = gbh_setting.GbhSetting()
-    cur_gbh_setting.proxy_ip = ['87.254.212.121:8080']
+    cur_gbh_setting.proxy_ip = None
     cur_gbh_setting.browser_type = {gbh_self_enum.BrowserType.All}
-    cur_gbh_setting.firefox_ver = {'min': 74, 'max': 75}
+    cur_gbh_setting.firefox_ver = {'min': 64, 'max': 75}
     cur_gbh_setting.chrome_type = {gbh_self_enum.ChromeType.Stable}
-    cur_gbh_setting.chrome_max_release_year = 1
+    cur_gbh_setting.chrome_max_release_year = 2
     cur_gbh_setting.os_type = {gbh_self_enum.OsType.Win64}
 
     cur_gfp_setting = gfp_setting.GfpSetting()
-    cur_gfp_setting.raw_site = {gfp_self_enum.SupportedWeb.Xici}
+    cur_gfp_setting.raw_site = {gfp_self_enum.SupportedWeb.Kuai}
     cur_gfp_setting.proxy_type = {gfp_self_enum.ProxyType.HIGH_ANON}
     cur_gfp_setting.protocol = {gfp_self_enum.ProtocolType.HTTP,
-                                # gfp_self_enum.ProtocolType.HTTPS
+                                gfp_self_enum.ProtocolType.HTTPS
                                 }
     cur_gfp_setting.country = {gfp_self_enum.Country.All}
-    cur_gfp_setting.storage_type = {gfp_self_enum.StorageType.File}
+    cur_gfp_setting.storage_type = {gfp_self_enum.StorageType.Mysql}
     cur_gfp_setting.mysql = {
         'host': '127.0.0.1',
         'port': 3306,
         'user': 'root',
-        'pwd': '1234',
+        'pwd': '1111',
         'db_name': 'db_proxy',
         'tbl_name': 'tbl_proxy',
         'charset': 'utf8mb4'
